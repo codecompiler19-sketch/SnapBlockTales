@@ -13,7 +13,9 @@ class PuzzlePiecePainter extends CustomPainter {
   final bool isLifted;
   final bool isHighlighted;
   final bool isMysteryHidden;
-  final double highlightPulse; // 0.0 to 1.0
+  final bool isTileMode;
+  final bool showNumberBadge;
+  final double highlightPulse;
 
   PuzzlePiecePainter({
     required this.image,
@@ -25,49 +27,56 @@ class PuzzlePiecePainter extends CustomPainter {
     this.isLifted = false,
     this.isHighlighted = false,
     this.isMysteryHidden = false,
+    this.isTileMode = true,
+    this.showNumberBadge = false,
     this.highlightPulse = 0.0,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Build the exact interlocking jigsaw path
-    final path = PuzzleEdgeGenerator.buildPiecePath(
-      width: pieceWidth,
-      height: pieceHeight,
-      top: piece.topEdge,
-      right: piece.rightEdge,
-      bottom: piece.bottomEdge,
-      left: piece.leftEdge,
-    );
+    final rect = Rect.fromLTWH(2.5, 2.5, pieceWidth - 5.0, pieceHeight - 5.0);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(10.0));
+
+    // 1. Build clip path
+    Path path;
+    if (isTileMode) {
+      path = Path()..addRRect(rrect);
+    } else {
+      path = PuzzleEdgeGenerator.buildPiecePath(
+        width: pieceWidth,
+        height: pieceHeight,
+        top: piece.topEdge,
+        right: piece.rightEdge,
+        bottom: piece.bottomEdge,
+        left: piece.leftEdge,
+      );
+    }
 
     // 2. Draw 3D Drop Shadow
     final shadowPaint = Paint()..style = PaintingStyle.fill;
     if (isLifted) {
-      // 3D Lifted drop shadow (larger spread, offset, and blur)
       shadowPaint
-        ..color = const Color(0x66000000)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0);
+        ..color = const Color(0x80000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0);
       canvas.save();
-      canvas.translate(8.0, 14.0);
+      canvas.translate(6.0, 10.0);
       canvas.drawPath(path, shadowPaint);
       canvas.restore();
-    } else if (!piece.isPlaced) {
-      // Subtle ambient shadow for unplaced piece
+    } else if (!piece.isCorrect) {
       shadowPaint
         ..color = const Color(0x40000000)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0);
       canvas.save();
-      canvas.translate(2.0, 3.5);
+      canvas.translate(2.0, 3.0);
       canvas.drawPath(path, shadowPaint);
       canvas.restore();
     }
 
-    // 3. Draw Mystery Mode Silhouette or Clipped Image
+    // 3. Draw Clipped Image Portion
     canvas.save();
     canvas.clipPath(path);
 
     if (isMysteryHidden && !piece.isPlaced) {
-      // Mystery Mode: embossed silhouette with frosted shimmer
       final mysteryPaint = Paint()
         ..shader = ui.Gradient.linear(
           const Offset(0, 0),
@@ -78,9 +87,8 @@ class PuzzlePiecePainter extends CustomPainter {
             const Color(0xFF383854),
           ],
         );
-      canvas.drawRect(Rect.fromLTWH(-40, -40, pieceWidth + 80, pieceHeight + 80), mysteryPaint);
+      canvas.drawRect(Rect.fromLTWH(0, 0, pieceWidth, pieceHeight), mysteryPaint);
 
-      // Question mark or mystery pattern in center
       final iconPainter = TextPainter(
         text: const TextSpan(
           text: '?',
@@ -100,66 +108,68 @@ class PuzzlePiecePainter extends CustomPainter {
         ),
       );
     } else if (image != null) {
-      // Draw the mapped portion of the source image!
-      // The image is mapped over the full board (boardWidth x boardHeight)
-      // Piece's position on the full board is (piece.col * pieceWidth, piece.row * pieceHeight)
-      final srcRect = Rect.fromLTWH(
-        piece.normX * image!.width,
-        piece.normY * image!.height,
-        piece.normWidth * image!.width,
-        piece.normHeight * image!.height,
-      );
+      // Clamped source rect strictly within [0, 0, image.width, image.height]
+      final double srcX = (piece.normX * image!.width).clamp(0.0, image!.width.toDouble());
+      final double srcY = (piece.normY * image!.height).clamp(0.0, image!.height.toDouble());
+      final double srcW = (piece.normWidth * image!.width).clamp(1.0, image!.width - srcX);
+      final double srcH = (piece.normHeight * image!.height).clamp(1.0, image!.height - srcY);
 
-      // Also account for tabs sticking outward by expanding src & dst
-      final double tabW = pieceWidth * 0.25;
-      final double tabH = pieceHeight * 0.25;
-
-      final expandedDst = Rect.fromLTWH(
-        -tabW,
-        -tabH,
-        pieceWidth + (tabW * 2),
-        pieceHeight + (tabH * 2),
-      );
-
-      final double imgTabX = (tabW / boardWidth) * image!.width;
-      final double imgTabY = (tabH / boardHeight) * image!.height;
-
-      final expandedSrc = Rect.fromLTWH(
-        srcRect.left - imgTabX,
-        srcRect.top - imgTabY,
-        srcRect.width + (imgTabX * 2),
-        srcRect.height + (imgTabY * 2),
-      );
+      final srcRect = Rect.fromLTWH(srcX, srcY, srcW, srcH);
+      final dstRect = Rect.fromLTWH(0, 0, pieceWidth, pieceHeight);
 
       final paint = Paint()
         ..isAntiAlias = true
         ..filterQuality = FilterQuality.medium;
 
-      canvas.drawImageRect(image!, expandedSrc, expandedDst, paint);
+      canvas.drawImageRect(image!, srcRect, dstRect, paint);
 
-      // 4. Specular Sheen (glossy top glaze)
+      // Specular surface sheen
       final sheenPaint = Paint()
         ..shader = ui.Gradient.linear(
           const Offset(0, 0),
           Offset(pieceWidth, pieceHeight),
           [
-            Colors.white.withOpacity(isLifted ? 0.22 : 0.12),
+            Colors.white.withOpacity(isLifted ? 0.22 : 0.08),
             Colors.white.withOpacity(0.0),
-            Colors.black.withOpacity(0.10),
+            Colors.black.withOpacity(0.12),
           ],
         );
       canvas.drawPaint(sheenPaint);
     } else {
-      // Fallback placeholder
       final fallbackPaint = Paint()..color = const Color(0xFF455A64);
       canvas.drawPaint(fallbackPaint);
     }
 
     canvas.restore();
 
-    // 5. 3D Beveled Highlight & Shadow Edges
-    if (!piece.isPlaced || isLifted) {
-      // Top/Left directional highlight bevel
+    // 4. 3D Beveled Highlight & Shadow Edges
+    if (isTileMode) {
+      // Top-Left directional highlight
+      final highlightPath = Path()
+        ..moveTo(rect.left, rect.bottom - 8)
+        ..lineTo(rect.left, rect.top + 8)
+        ..arcToPoint(Offset(rect.left + 8, rect.top), radius: const Radius.circular(8))
+        ..lineTo(rect.right - 8, rect.top);
+
+      final highlightPen = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isLifted ? 2.5 : 1.8
+        ..color = Colors.white.withOpacity(isLifted ? 0.75 : 0.45);
+      canvas.drawPath(highlightPath, highlightPen);
+
+      // Bottom-Right directional shadow
+      final shadowPath = Path()
+        ..moveTo(rect.right, rect.top + 8)
+        ..lineTo(rect.right, rect.bottom - 8)
+        ..arcToPoint(Offset(rect.right - 8, rect.bottom), radius: const Radius.circular(8))
+        ..lineTo(rect.left + 8, rect.bottom);
+
+      final shadowPen = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isLifted ? 2.5 : 1.8
+        ..color = Colors.black.withOpacity(0.55);
+      canvas.drawPath(shadowPath, shadowPen);
+    } else {
       final highlightBevel = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = isLifted ? 2.5 : 1.8
@@ -173,31 +183,39 @@ class PuzzlePiecePainter extends CustomPainter {
           ],
         );
       canvas.drawPath(path, highlightBevel);
-
-      // Bottom/Right directional shadow bevel
-      final shadowBevel = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isLifted ? 2.5 : 1.8
-        ..shader = ui.Gradient.linear(
-          const Offset(0, 0),
-          Offset(pieceWidth, pieceHeight),
-          [
-            Colors.transparent,
-            Colors.black.withOpacity(0.35),
-            Colors.black.withOpacity(0.70),
-          ],
-        );
-      canvas.drawPath(path, shadowBevel);
-    } else {
-      // Correctly placed seam: very faint subtle hairline seam
-      final seamPaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.75
-        ..color = const Color(0x22FFFFFF);
-      canvas.drawPath(path, seamPaint);
     }
 
-    // 6. Golden Hint Highlight Pulse
+    // 5. Number Badge (Optional helper to see original target index 1..N)
+    if (showNumberBadge) {
+      final targetNum = '${piece.id + 1}';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: targetNum,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFFFFD700),
+            shadows: [
+              Shadow(color: Colors.black, blurRadius: 4),
+            ],
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final badgeCenter = Offset(rect.left + 16, rect.top + 16);
+      canvas.drawCircle(
+        badgeCenter,
+        12,
+        Paint()..color = const Color(0xCC000000),
+      );
+      tp.paint(
+        canvas,
+        Offset(badgeCenter.dx - tp.width / 2, badgeCenter.dy - tp.height / 2),
+      );
+    }
+
+    // 6. Hint highlight pulse
     if (isHighlighted) {
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
@@ -219,6 +237,8 @@ class PuzzlePiecePainter extends CustomPainter {
         oldDelegate.isHighlighted != isHighlighted ||
         oldDelegate.highlightPulse != highlightPulse ||
         oldDelegate.isMysteryHidden != isMysteryHidden ||
+        oldDelegate.showNumberBadge != showNumberBadge ||
+        oldDelegate.isTileMode != isTileMode ||
         oldDelegate.image != image;
   }
 }

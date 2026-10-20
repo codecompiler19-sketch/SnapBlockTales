@@ -172,7 +172,7 @@ class PuzzleLevel {
 
       final titles = [
         // S1
-        'Sunset Haven', 'Emerald Woods', 'Lavender Meadow', 'Alpine Peak', 'Autumn Cascade',
+        'Father & Son Workshop', 'Emerald Woods', 'Lavender Meadow', 'Alpine Peak', 'Autumn Cascade',
         'Bamboo Zen', 'Cherry Blossom', 'Tropical Lagoon', 'Golden Canyon', 'Starry Summit',
         // S2
         'Savanna Horizon', 'Coral Reef', 'Rainforest Canopy', 'Desert Mirage', 'Deep Trench',

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../game/puzzle_board.dart';
@@ -50,8 +50,12 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
   bool _isPaused = false;
   bool _isCompleted = false;
   bool _showWatermark = false;
+  bool _showNumbers = false;
   int? _highlightedPieceId;
   int _hintsUsed = 0;
+
+  // On-Board Rearrange (Default per user request: pieces live directly on board)
+  bool _isRearrangeMode = true;
 
   @override
   void initState() {
@@ -68,8 +72,10 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       seed: widget.level.id * 1000 + widget.level.rows,
     );
 
-    // If resuming saved state, apply placed pieces
-    if (widget.resumeState != null) {
+    // Initial shuffle for on-board rearrange mode
+    if (_isRearrangeMode && widget.resumeState == null) {
+      _shufflePiecesList();
+    } else if (widget.resumeState != null) {
       _elapsedSeconds = widget.resumeState!.elapsedSeconds;
       for (final p in _pieces) {
         if (widget.resumeState!.placedPieceIds.contains(p.id)) {
@@ -98,6 +104,20 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
     }
   }
 
+  void _shufflePiecesList() {
+    final rand = Random();
+    final count = _pieces.length;
+    final List<int> slots = List.generate(count, (i) => i);
+    do {
+      slots.shuffle(rand);
+    } while (count > 2 && slots.asMap().entries.any((e) => e.key == e.value));
+
+    for (int i = 0; i < count; i++) {
+      _pieces[i].currentSlot = slots[i];
+      _pieces[i].isPlaced = (_pieces[i].currentSlot == _pieces[i].id);
+    }
+  }
+
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -106,7 +126,6 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
           _elapsedSeconds++;
         });
 
-        // If timed challenge mode, check countdown
         if (widget.gameMode == GameMode.timed) {
           final remaining = widget.level.targetTimeSeconds - _elapsedSeconds;
           if (remaining <= 0) {
@@ -156,8 +175,12 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       _hintsUsed = 0;
       _highlightedPieceId = null;
       _isCompleted = false;
-      for (final p in _pieces) {
-        p.isPlaced = false;
+      if (_isRearrangeMode) {
+        _shufflePiecesList();
+      } else {
+        for (final p in _pieces) {
+          p.isPlaced = false;
+        }
       }
     });
     _startTimer();
@@ -192,13 +215,12 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
 
   void _onPieceSnapped() {
     setState(() {
-      // Clear highlight if this was the highlighted piece
       if (_highlightedPieceId != null) {
         final hp = _pieces.firstWhere(
           (p) => p.id == _highlightedPieceId,
           orElse: () => _pieces.first,
         );
-        if (hp.isPlaced) {
+        if (hp.isCorrect) {
           _highlightedPieceId = null;
         }
       }
@@ -218,7 +240,6 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       currentUnlockedSection: progressService.progress.highestUnlockedSection,
     );
 
-    // Save level victory
     progressService.completeLevel(
       widget.level.id,
       reward.stars,
@@ -226,7 +247,6 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       reward.totalCoins,
     );
 
-    // Show Victory Celebration
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -235,7 +255,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
         rewardResult: reward,
         timeElapsedSeconds: _elapsedSeconds,
         onNextLevel: () {
-          Navigator.pop(context); // Close dialog
+          Navigator.pop(context);
           final nextLevelId = widget.level.id + 1;
           if (nextLevelId <= 50) {
             Navigator.pushReplacement(
@@ -248,7 +268,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
               ),
             );
           } else {
-            Navigator.pop(context); // Back to sections
+            Navigator.pop(context);
           }
         },
         onReplay: () {
@@ -280,8 +300,11 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       return;
     }
 
-    final unplaced = _pieces.where((p) => !p.isPlaced).toList();
-    if (unplaced.isEmpty) return;
+    final misplaced = _isRearrangeMode
+        ? _pieces.where((p) => !p.isCorrect).toList()
+        : _pieces.where((p) => !p.isPlaced).toList();
+
+    if (misplaced.isEmpty) return;
 
     if (!isRelax) {
       await progress.spendCoins(hintCost);
@@ -290,18 +313,20 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
     _hintsUsed++;
     AudioManager.instance.playHint();
 
-    // Pick random unplaced piece
-    unplaced.shuffle();
-    final hintPiece = unplaced.first;
+    misplaced.shuffle();
+    final hintPiece = misplaced.first;
 
     setState(() {
       _highlightedPieceId = hintPiece.id;
     });
 
+    final targetRow = (hintPiece.id ~/ widget.level.cols) + 1;
+    final targetCol = (hintPiece.id % widget.level.cols) + 1;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Target location highlighted! (Row ${hintPiece.row + 1}, Col ${hintPiece.col + 1})',
+          'Target location highlighted! (Row $targetRow, Col $targetCol)',
         ),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
@@ -326,17 +351,22 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       return;
     }
 
-    final unplaced = _pieces.where((p) => !p.isPlaced).toList();
-    if (unplaced.isEmpty) return;
-
     if (!isRelax) {
       await progress.spendCoins(autoCost);
     }
 
     _hintsUsed += 2;
-    unplaced.shuffle();
-    final piece = unplaced.first;
-    _boardKey.currentState?.snapPiece(piece);
+
+    if (_isRearrangeMode) {
+      _boardKey.currentState?.autoPlaceOnePiece();
+    } else {
+      final unplaced = _pieces.where((p) => !p.isPlaced).toList();
+      if (unplaced.isNotEmpty) {
+        unplaced.shuffle();
+        final piece = unplaced.first;
+        _boardKey.currentState?.snapPiece(piece);
+      }
+    }
   }
 
   void _showImagePreviewModal() {
@@ -346,7 +376,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: const Color(0xFF1E2235),
             borderRadius: BorderRadius.circular(20),
@@ -375,9 +405,9 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: widget.customPhotoPath != null
-                    ? Image.file(
-                        File(widget.customPhotoPath!),
+                child: _decodedImage != null
+                    ? RawImage(
+                        image: _decodedImage,
                         fit: BoxFit.contain,
                       )
                     : Image.asset(
@@ -443,7 +473,9 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
   @override
   Widget build(BuildContext context) {
     final progress = ProgressService.instance.progress;
-    final placedCount = _pieces.where((p) => p.isPlaced).length;
+    final correctCount = _isRearrangeMode
+        ? _pieces.where((p) => p.isCorrect).length
+        : _pieces.where((p) => p.isPlaced).length;
     final totalCount = _pieces.length;
 
     return WillPopScope(
@@ -468,7 +500,6 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                       ),
                       child: Row(
                         children: [
-                          // Back Button
                           IconButton(
                             icon: const Icon(
                               Icons.arrow_back_ios_new_rounded,
@@ -578,7 +609,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Placed Progress Counter
+                          // Placed / Correct Progress Counter
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
@@ -591,13 +622,13 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                             child: Row(
                               children: [
                                 const Icon(
-                                  Icons.extension,
+                                  Icons.check_circle_outline_rounded,
                                   size: 14,
-                                  color: Color(0xFF3B82F6),
+                                  color: Color(0xFF10B981),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  '$placedCount / $totalCount',
+                                  '$correctCount / $totalCount Correct',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -647,7 +678,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                             ),
                           ),
 
-                          // Action Buttons: Preview Image, Ghost Watermark, Hint, Auto-Place
+                          // Action Buttons: Preview, Ghost, Hint, Auto
                           Row(
                             children: [
                               // Full Image Preview Modal
@@ -681,7 +712,25 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                                 },
                               ),
 
-                              // Highlight Hint (25 Coins)
+                              // Tile Numbers Toggle
+                              IconButton(
+                                icon: Icon(
+                                  Icons.pin_outlined,
+                                  size: 20,
+                                  color: _showNumbers
+                                      ? const Color(0xFFFFD700)
+                                      : Colors.white54,
+                                ),
+                                tooltip: 'Toggle Numbers Guide',
+                                onPressed: () {
+                                  AudioManager.instance.playTap();
+                                  setState(() {
+                                    _showNumbers = !_showNumbers;
+                                  });
+                                },
+                              ),
+
+                              // Hint (25 Coins)
                               InkWell(
                                 onTap: _useHint,
                                 borderRadius: BorderRadius.circular(12),
@@ -720,7 +769,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                               ),
                               const SizedBox(width: 6),
 
-                              // Auto-Place Hint (60 Coins)
+                              // Auto-Place (60 Coins)
                               InkWell(
                                 onTap: _useAutoPlace,
                                 borderRadius: BorderRadius.circular(12),
@@ -767,7 +816,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                     // Main Focus: The 3D Puzzle Board
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         child: PuzzleBoardWidget(
                           key: _boardKey,
                           image: _decodedImage,
@@ -777,23 +826,121 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                           showWatermark: _showWatermark,
                           highlightedPieceId: _highlightedPieceId,
                           isMysteryMode: widget.gameMode == GameMode.mystery,
+                          isRearrangeMode: _isRearrangeMode,
+                          showNumberBadge: _showNumbers,
                           onPieceSnapped: _onPieceSnapped,
                           onPuzzleCompleted: _onPuzzleCompleted,
                         ),
                       ),
                     ),
 
-                    // Bottom Dock: Piece Tray
-                    PuzzleTrayWidget(
-                      image: _decodedImage,
-                      pieces: _pieces,
-                      rows: widget.level.rows,
-                      cols: widget.level.cols,
-                      boardKey: _boardKey,
-                      highlightedPieceId: _highlightedPieceId,
-                      isMysteryMode: widget.gameMode == GameMode.mystery,
-                      leftHanded: progress.leftHanded,
-                    ),
+                    // Bottom Bar: Instructions / Mode Controls
+                    if (_isRearrangeMode)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141622),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                          border: Border(
+                            top: BorderSide(
+                              color: Colors.white.withOpacity(0.08),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Reshuffle Button
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                AudioManager.instance.playTap();
+                                _boardKey.currentState?.shufflePiecesOnBoard();
+                              },
+                              icon: const Icon(Icons.shuffle, size: 16, color: Color(0xFFFFD700)),
+                              label: const Text(
+                                'Reshuffle',
+                                style: TextStyle(color: Color(0xFFFFD700), fontSize: 12),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0x66FFD700)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                            ),
+
+                            // Helper text
+                            const Expanded(
+                              child: Text(
+                                '👆 Tap or Drag pieces to swap & restore the picture!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+
+                            // Toggle to Tray Dock mode if desired
+                            TextButton.icon(
+                              onPressed: () {
+                                AudioManager.instance.playTap();
+                                setState(() {
+                                  _isRearrangeMode = false;
+                                  for (final p in _pieces) {
+                                    p.isPlaced = false;
+                                  }
+                                });
+                              },
+                              icon: const Icon(Icons.dock, size: 14, color: Colors.white54),
+                              label: const Text(
+                                'Tray Mode',
+                                style: TextStyle(color: Colors.white54, fontSize: 11),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            color: const Color(0xFF141622),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: () {
+                                    AudioManager.instance.playTap();
+                                    setState(() {
+                                      _isRearrangeMode = true;
+                                      _shufflePiecesList();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.grid_on, size: 14, color: Color(0xFFFFD700)),
+                                  label: const Text(
+                                    'Switch to On-Board Swap',
+                                    style: TextStyle(color: Color(0xFFFFD700), fontSize: 11),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PuzzleTrayWidget(
+                            image: _decodedImage,
+                            pieces: _pieces,
+                            rows: widget.level.rows,
+                            cols: widget.level.cols,
+                            boardKey: _boardKey,
+                            highlightedPieceId: _highlightedPieceId,
+                            isMysteryMode: widget.gameMode == GameMode.mystery,
+                            leftHanded: progress.leftHanded,
+                          ),
+                        ],
+                      ),
                   ],
                 ),
         ),
@@ -801,5 +948,3 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
     );
   }
 }
-
-

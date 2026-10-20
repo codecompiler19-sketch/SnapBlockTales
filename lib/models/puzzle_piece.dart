@@ -20,7 +20,8 @@ class PuzzlePiece {
   final double normHeight;
 
   bool isPlaced;
-  int rotation; // 0, 90, 180, 270 degrees (for advanced modes)
+  int currentSlot; // Slot index on the board (0 .. rows*cols - 1)
+  int rotation;
 
   PuzzlePiece({
     required this.id,
@@ -35,8 +36,11 @@ class PuzzlePiece {
     required this.normWidth,
     required this.normHeight,
     this.isPlaced = false,
+    int? currentSlot,
     this.rotation = 0,
-  });
+  }) : currentSlot = currentSlot ?? id;
+
+  bool get isCorrect => currentSlot == id;
 
   bool get isEdgePiece =>
       topEdge == EdgeShape.none ||
@@ -49,6 +53,7 @@ class PuzzlePiece {
         'row': row,
         'col': col,
         'isPlaced': isPlaced,
+        'currentSlot': currentSlot,
         'rotation': rotation,
       };
 
@@ -66,6 +71,7 @@ class PuzzlePiece {
       normWidth: template.normWidth,
       normHeight: template.normHeight,
       isPlaced: json['isPlaced'] as bool? ?? false,
+      currentSlot: json['currentSlot'] as int? ?? template.id,
       rotation: json['rotation'] as int? ?? 0,
     );
   }

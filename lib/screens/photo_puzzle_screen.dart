@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/game_mode.dart';
@@ -16,6 +16,7 @@ class PhotoPuzzleScreen extends StatefulWidget {
 class _PhotoPuzzleScreenState extends State<PhotoPuzzleScreen> {
   final ImagePicker _picker = ImagePicker();
   XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
   int _gridDimension = 4; // 3x3, 4x4, 5x5, 6x6
 
   Future<void> _pickImage(ImageSource source) async {
@@ -28,8 +29,10 @@ class _PhotoPuzzleScreenState extends State<PhotoPuzzleScreen> {
         imageQuality: 92,
       );
       if (image != null) {
+        final bytes = await image.readAsBytes();
         setState(() {
           _selectedImage = image;
+          _selectedImageBytes = bytes;
         });
       }
     } catch (e) {
@@ -127,10 +130,12 @@ class _PhotoPuzzleScreenState extends State<PhotoPuzzleScreen> {
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.file(
-                              File(_selectedImage!.path),
-                              fit: BoxFit.cover,
-                            ),
+                            _selectedImageBytes != null
+                                ? Image.memory(
+                                    _selectedImageBytes!,
+                                    fit: BoxFit.cover,
+                                  )
+                                : const SizedBox.shrink(),
                             // Change image button overlay
                             Positioned(
                               top: 12,

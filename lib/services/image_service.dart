@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ImageService {
   static final ImageService instance = ImageService._internal();
@@ -18,8 +18,8 @@ class ImageService {
     Uint8List bytes;
 
     if (isFile) {
-      final file = File(imagePath);
-      bytes = await file.readAsBytes();
+      final xFile = XFile(imagePath);
+      bytes = await xFile.readAsBytes();
     } else {
       final data = await rootBundle.load(imagePath);
       bytes = data.buffer.asUint8List();
