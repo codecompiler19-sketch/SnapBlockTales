@@ -50,7 +50,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
   bool _isPaused = false;
   bool _isCompleted = false;
   bool _showWatermark = false;
-  bool _showNumbers = true;
+  bool _showNumbers = false;
   int? _highlightedPieceId;
   int _hintsUsed = 0;
 
@@ -867,11 +867,11 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                             ),
 
                             // Helper text
-                            Expanded(
+                            const Expanded(
                               child: Text(
-                                '🔢 Rearrange tiles 1 to ${widget.level.pieceCount} in serial order!\n👆 Tap to swap, or drag & drop',
+                                '🧩 Swap pieces to match the picture!\n✨ Correct neighbors magnetically join & boundaries vanish',
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,

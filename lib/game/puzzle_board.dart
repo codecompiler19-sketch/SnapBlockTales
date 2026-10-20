@@ -87,12 +87,55 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     });
   }
 
+  bool isSlotJoinedTop(int slotRow, int slotCol, PuzzlePiece currentPiece) {
+    if (slotRow == 0) return false;
+    final topSlot = (slotRow - 1) * widget.cols + slotCol;
+    final topPiece = widget.pieces.firstWhere((p) => p.currentSlot == topSlot, orElse: () => currentPiece);
+    return topPiece.col == currentPiece.col && topPiece.row + 1 == currentPiece.row;
+  }
+
+  bool isSlotJoinedBottom(int slotRow, int slotCol, PuzzlePiece currentPiece) {
+    if (slotRow >= widget.rows - 1) return false;
+    final bottomSlot = (slotRow + 1) * widget.cols + slotCol;
+    final bottomPiece = widget.pieces.firstWhere((p) => p.currentSlot == bottomSlot, orElse: () => currentPiece);
+    return bottomPiece.col == currentPiece.col && currentPiece.row + 1 == bottomPiece.row;
+  }
+
+  bool isSlotJoinedLeft(int slotRow, int slotCol, PuzzlePiece currentPiece) {
+    if (slotCol == 0) return false;
+    final leftSlot = slotRow * widget.cols + (slotCol - 1);
+    final leftPiece = widget.pieces.firstWhere((p) => p.currentSlot == leftSlot, orElse: () => currentPiece);
+    return leftPiece.row == currentPiece.row && leftPiece.col + 1 == currentPiece.col;
+  }
+
+  bool isSlotJoinedRight(int slotRow, int slotCol, PuzzlePiece currentPiece) {
+    if (slotCol >= widget.cols - 1) return false;
+    final rightSlot = slotRow * widget.cols + (slotCol + 1);
+    final rightPiece = widget.pieces.firstWhere((p) => p.currentSlot == rightSlot, orElse: () => currentPiece);
+    return rightPiece.row == currentPiece.row && currentPiece.col + 1 == rightPiece.col;
+  }
+
+  int countTotalJoinedEdges() {
+    int count = 0;
+    for (int r = 0; r < widget.rows; r++) {
+      for (int c = 0; c < widget.cols; c++) {
+        final slotIndex = r * widget.cols + c;
+        final piece = widget.pieces.firstWhere((p) => p.currentSlot == slotIndex, orElse: () => widget.pieces[slotIndex]);
+        if (isSlotJoinedRight(r, c, piece)) count++;
+        if (isSlotJoinedBottom(r, c, piece)) count++;
+      }
+    }
+    return count;
+  }
+
   /// Swaps pieces at slotA and slotB.
   void swapSlots(int slotA, int slotB) {
     if (slotA == slotB) return;
 
     final pieceA = widget.pieces.firstWhere((p) => p.currentSlot == slotA);
     final pieceB = widget.pieces.firstWhere((p) => p.currentSlot == slotB);
+
+    final prevJoined = countTotalJoinedEdges();
 
     setState(() {
       pieceA.currentSlot = slotB;
@@ -105,11 +148,13 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
       _hoveredSlot = null;
     });
 
-    final anyCorrect = pieceA.isPlaced || pieceB.isPlaced;
-    if (anyCorrect) {
+    final newJoined = countTotalJoinedEdges();
+    final anyJoinedOrPlaced = pieceA.isPlaced || pieceB.isPlaced || newJoined > prevJoined;
+
+    if (anyJoinedOrPlaced) {
       AudioManager.instance.playSnap();
       AudioManager.instance.triggerHaptic(HapticFeedbackType.medium);
-      _recentlySnappedId = pieceA.isPlaced ? pieceA.id : pieceB.id;
+      _recentlySnappedId = pieceA.id;
       _snapFlashOpacity = 1.0;
       widget.onPieceSnapped();
 
@@ -417,9 +462,9 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
                                   ),
                                   childWhenDragging: Opacity(
                                     opacity: 0.35,
-                                    child: _buildSlotPiece(piece, pieceW, pieceH, boardW, boardH, isCorrect, isSelected, isHovered),
+                                    child: _buildSlotPiece(piece, slotRow, slotCol, pieceW, pieceH, boardW, boardH, isCorrect, isSelected, isHovered),
                                   ),
-                                  child: _buildSlotPiece(piece, pieceW, pieceH, boardW, boardH, isCorrect, isSelected, isHovered),
+                                  child: _buildSlotPiece(piece, slotRow, slotCol, pieceW, pieceH, boardW, boardH, isCorrect, isSelected, isHovered),
                                 ),
                               ),
                             );
@@ -481,6 +526,8 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
 
   Widget _buildSlotPiece(
     PuzzlePiece piece,
+    int slotRow,
+    int slotCol,
     double pieceW,
     double pieceH,
     double boardW,
@@ -489,20 +536,25 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     bool isSelected,
     bool isHovered,
   ) {
+    final joinTop = isSlotJoinedTop(slotRow, slotCol, piece);
+    final joinRight = isSlotJoinedRight(slotRow, slotCol, piece);
+    final joinBottom = isSlotJoinedBottom(slotRow, slotCol, piece);
+    final joinLeft = isSlotJoinedLeft(slotRow, slotCol, piece);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isSelected
-              ? const Color(0xFFFFD700)
-              : (isHovered
-                  ? const Color(0xFF60A5FA)
-                  : (isCorrect
-                      ? const Color(0x5510B981)
-                      : Colors.transparent)),
-          width: isSelected || isHovered ? 2.8 : (isCorrect ? 1.5 : 0.0),
+        borderRadius: BorderRadius.circular(
+          (joinTop || joinRight || joinBottom || joinLeft) ? 0 : 6,
         ),
+        border: (isSelected || isHovered)
+            ? Border.all(
+                color: isSelected
+                    ? const Color(0xFFFFD700)
+                    : const Color(0xFF60A5FA),
+                width: 2.5,
+              )
+            : null,
         boxShadow: isSelected
             ? const [
                 BoxShadow(
@@ -528,43 +580,27 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
               isTileMode: true,
               showNumberBadge: widget.showNumberBadge,
               isMysteryHidden: widget.isMysteryMode && !piece.isPlaced,
+              joinTop: joinTop,
+              joinRight: joinRight,
+              joinBottom: joinBottom,
+              joinLeft: joinLeft,
             ),
           ),
 
-          // Correct placement indicator checkmark
-          if (isCorrect)
-            Positioned(
-              top: 5,
-              right: 5,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xCC000000),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  size: 15,
-                  color: Color(0xFF10B981),
-                ),
-              ),
-            ),
-
-          // Magnetic Snap Glow Pulse Effect
-          if (piece.id == _recentlySnappedId)
+          // Magnetic Snap Glow Pulse Effect when newly joined/placed
+          if (piece.id == _recentlySnappedId && _snapFlashOpacity > 0.0)
             Positioned.fill(
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 350),
                 opacity: _snapFlashOpacity,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF10B981), width: 3.0),
+                    border: Border.all(color: const Color(0xFF10B981), width: 2.5),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0xCC10B981),
-                        blurRadius: 18,
-                        spreadRadius: 3,
+                        color: Color(0xBB10B981),
+                        blurRadius: 16,
+                        spreadRadius: 2,
                       ),
                     ],
                   ),
@@ -592,47 +628,21 @@ class _BoardGridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double cellW = size.width / cols;
-    final double cellH = size.height / rows;
-
-    final slotBorderPaint = Paint()
+    final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
-      ..color = const Color(0x2EFFFFFF);
+      ..strokeWidth = 1.5
+      ..color = const Color(0x28FFFFFF);
 
-    for (int r = 0; r < rows; r++) {
-      for (int c = 0; c < cols; c++) {
-        final slotIndex = r * cols + c;
-        final cellRect = Rect.fromLTWH(c * cellW + 2, r * cellH + 2, cellW - 4, cellH - 4);
-        final rrect = RRect.fromRectAndRadius(cellRect, const Radius.circular(8.0));
-
-        // Draw slot outline
-        canvas.drawRRect(rrect, slotBorderPaint);
-
-        // Faint target slot number in background (1, 2, 3...)
-        final slotNum = '${slotIndex + 1}';
-        final tp = TextPainter(
-          text: TextSpan(
-            text: slotNum,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: Color(0x1AFFFFFF),
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        tp.paint(
-          canvas,
-          Offset(
-            c * cellW + (cellW - tp.width) / 2,
-            r * cellH + (cellH - tp.height) / 2,
-          ),
-        );
-      }
-    }
+    // Clean outer board frame
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        const Radius.circular(10.0),
+      ),
+      borderPaint,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _BoardGridPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BoardGridPainter oldDelegate) => false;
 }
