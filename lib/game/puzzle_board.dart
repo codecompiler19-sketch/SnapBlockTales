@@ -108,6 +108,7 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     final anyCorrect = pieceA.isPlaced || pieceB.isPlaced;
     if (anyCorrect) {
       AudioManager.instance.playSnap();
+      AudioManager.instance.triggerHaptic(HapticFeedbackType.medium);
       _recentlySnappedId = pieceA.isPlaced ? pieceA.id : pieceB.id;
       _snapFlashOpacity = 1.0;
       widget.onPieceSnapped();
@@ -545,6 +546,28 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
                   Icons.check_circle_rounded,
                   size: 15,
                   color: Color(0xFF10B981),
+                ),
+              ),
+            ),
+
+          // Magnetic Snap Glow Pulse Effect
+          if (piece.id == _recentlySnappedId)
+            Positioned.fill(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 350),
+                opacity: _snapFlashOpacity,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF10B981), width: 3.0),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0xCC10B981),
+                        blurRadius: 18,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

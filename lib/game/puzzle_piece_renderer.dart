@@ -80,6 +80,7 @@ class PuzzlePiecePainter extends CustomPainter {
             const Color(0xFF1E1E2E),
             const Color(0xFF383854),
           ],
+          [0.0, 0.5, 1.0],
         );
       canvas.drawRect(rect, mysteryPaint);
 
@@ -127,6 +128,7 @@ class PuzzlePiecePainter extends CustomPainter {
             Colors.white.withOpacity(0.0),
             Colors.black.withOpacity(0.12),
           ],
+          [0.0, 0.5, 1.0],
         );
       canvas.drawRect(rect, sheenPaint);
     } else {

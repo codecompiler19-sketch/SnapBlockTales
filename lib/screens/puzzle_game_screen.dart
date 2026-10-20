@@ -73,14 +73,11 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
     );
 
     // Initial shuffle for on-board rearrange mode
-    if (_isRearrangeMode && widget.resumeState == null) {
-      _shufflePiecesList();
-    } else if (widget.resumeState != null) {
-      _elapsedSeconds = widget.resumeState!.elapsedSeconds;
-      for (final p in _pieces) {
-        if (widget.resumeState!.placedPieceIds.contains(p.id)) {
-          p.isPlaced = true;
-        }
+    if (_isRearrangeMode) {
+      if (widget.resumeState == null || widget.resumeState!.placedPieceIds.isEmpty) {
+        _shufflePiecesList();
+      } else {
+        _elapsedSeconds = widget.resumeState!.elapsedSeconds;
       }
     }
 
