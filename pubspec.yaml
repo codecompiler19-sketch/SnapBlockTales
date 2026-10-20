@@ -1,0 +1,30 @@
+name: jigsaw_3d_adventure
+description: "A 3D Jigsaw Puzzle Adventure game for Android built with Flutter."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.5
+  audioplayers: ^6.7.1
+  image_picker: ^1.2.3
+  path_provider: ^2.1.6
+  confetti: ^0.8.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/images/levels/
+    - assets/audio/
