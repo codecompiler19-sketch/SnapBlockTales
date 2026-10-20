@@ -191,7 +191,8 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     return true;
   }
 
-  /// Moves an entire seamlessly joined group together from [fromAnchorSlot] to [toAnchorSlot].
+  /// Moves an entire seamlessly joined group together from [fromAnchorSlot] to [toAnchorSlot],
+  /// replacing the displaced pieces into the vacated positions like a synchronized team.
   void moveGroup(int fromAnchorSlot, int toAnchorSlot) {
     if (fromAnchorSlot == toAnchorSlot) return;
 
@@ -201,23 +202,60 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     final toRow = toAnchorSlot ~/ widget.cols;
     final toCol = toAnchorSlot % widget.cols;
 
-    final dRow = toRow - fromRow;
-    final dCol = toCol - fromCol;
+    int dRow = toRow - fromRow;
+    int dCol = toCol - fromCol;
 
-    if (!canGroupMove(groupSlots, dRow, dCol)) {
-      if (groupSlots.length == 1) {
-        swapSlots(fromAnchorSlot, toAnchorSlot);
-      } else {
-        AudioManager.instance.playDrop();
-      }
+    // Bounds of the group on the grid
+    final minRow = groupSlots.map((s) => s ~/ widget.cols).reduce(min);
+    final maxRow = groupSlots.map((s) => s ~/ widget.cols).reduce(max);
+    final minCol = groupSlots.map((s) => s % widget.cols).reduce(min);
+    final maxCol = groupSlots.map((s) => s % widget.cols).reduce(max);
+
+    // Smart Clamping: Always keep the moving team cleanly within the board boundaries
+    if (minRow + dRow < 0) dRow = -minRow;
+    if (maxRow + dRow >= widget.rows) dRow = (widget.rows - 1) - maxRow;
+    if (minCol + dCol < 0) dCol = -minCol;
+    if (maxCol + dCol >= widget.cols) dCol = (widget.cols - 1) - maxCol;
+
+    if (dRow == 0 && dCol == 0) {
+      setState(() {
+        _selectedSlot = null;
+        _hoveredSlot = null;
+        _activeDraggingGroup = {};
+      });
+      AudioManager.instance.playDrop();
       return;
     }
 
-    final targetSlots = groupSlots.map((s) {
+    // Map each piece in the group to its new slot
+    final Map<int, int> groupSlotMoves = {};
+    for (final s in groupSlots) {
       final r = s ~/ widget.cols + dRow;
       final c = s % widget.cols + dCol;
-      return r * widget.cols + c;
-    }).toSet();
+      groupSlotMoves[s] = r * widget.cols + c;
+    }
+
+    final targetSlots = groupSlotMoves.values.toSet();
+    final vacatedSlots = groupSlots.where((s) => !targetSlots.contains(s)).toList();
+    final displacedSlots = targetSlots.where((s) => !groupSlots.contains(s)).toList();
+
+    // Map each displaced piece to a vacated slot using parallel team inversion
+    final Map<int, int> displacedSlotMoves = {};
+    for (final dSlot in displacedSlots) {
+      final naturalVacated = (dSlot ~/ widget.cols - dRow) * widget.cols +
+          (dSlot % widget.cols - dCol);
+      if (vacatedSlots.contains(naturalVacated)) {
+        displacedSlotMoves[dSlot] = naturalVacated;
+      }
+    }
+
+    final remainingVacated =
+        vacatedSlots.where((s) => !displacedSlotMoves.values.contains(s)).toList();
+    final remainingDisplaced =
+        displacedSlots.where((s) => !displacedSlotMoves.containsKey(s)).toList();
+    for (int i = 0; i < remainingDisplaced.length; i++) {
+      displacedSlotMoves[remainingDisplaced[i]] = remainingVacated[i];
+    }
 
     final prevJoined = countTotalJoinedEdges();
 
@@ -225,29 +263,19 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
         .map((s) => widget.pieces.firstWhere((p) => p.currentSlot == s))
         .toList();
 
-    final vacatedSlots = groupSlots.difference(targetSlots).toList();
-    final displacedSlots = targetSlots.difference(groupSlots).toList();
     final displacedPieces = displacedSlots
         .map((s) => widget.pieces.firstWhere((p) => p.currentSlot == s))
         .toList();
 
-    // Precalculate new slots for group pieces to avoid race condition collisions
-    final groupPiecesWithNewSlots = groupPieces.map((p) {
-      final r = p.currentSlot ~/ widget.cols + dRow;
-      final c = p.currentSlot % widget.cols + dCol;
-      return MapEntry(p, r * widget.cols + c);
-    }).toList();
-
     setState(() {
-      for (final entry in groupPiecesWithNewSlots) {
-        entry.key.currentSlot = entry.value;
-        entry.key.isPlaced = (entry.key.currentSlot == entry.key.id);
+      for (final p in groupPieces) {
+        p.currentSlot = groupSlotMoves[p.currentSlot]!;
+        p.isPlaced = (p.currentSlot == p.id);
       }
 
-      for (int i = 0; i < displacedPieces.length; i++) {
-        displacedPieces[i].currentSlot = vacatedSlots[i];
-        displacedPieces[i].isPlaced =
-            (displacedPieces[i].currentSlot == displacedPieces[i].id);
+      for (final p in displacedPieces) {
+        p.currentSlot = displacedSlotMoves[p.currentSlot]!;
+        p.isPlaced = (p.currentSlot == p.id);
       }
 
       _selectedSlot = null;
@@ -500,16 +528,7 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
                         width: pieceW,
                         height: pieceH,
                         child: DragTarget<int>(
-                          onWillAcceptWithDetails: (details) {
-                            final fromSlot = details.data;
-                            if (fromSlot == slotIndex) return false;
-                            final group = getConnectedGroupSlots(fromSlot);
-                            final fromRow = fromSlot ~/ widget.cols;
-                            final fromCol = fromSlot % widget.cols;
-                            final toRow = slotIndex ~/ widget.cols;
-                            final toCol = slotIndex % widget.cols;
-                            return canGroupMove(group, toRow - fromRow, toCol - fromCol);
-                          },
+                          onWillAcceptWithDetails: (details) => details.data != slotIndex,
                           onAcceptWithDetails: (details) {
                             moveGroup(details.data, slotIndex);
                           },
