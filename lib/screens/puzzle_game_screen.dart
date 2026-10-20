@@ -50,7 +50,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
   bool _isPaused = false;
   bool _isCompleted = false;
   bool _showWatermark = false;
-  bool _showNumbers = false;
+  bool _showNumbers = true;
   int? _highlightedPieceId;
   int _hintsUsed = 0;
 
@@ -870,33 +870,16 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                             ),
 
                             // Helper text
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                '👆 Tap or Drag pieces to swap & restore the picture!',
+                                '🔢 Rearrange tiles 1 to ${widget.level.pieceCount} in serial order!\n👆 Tap to swap, or drag & drop',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
+                                  height: 1.3,
                                 ),
-                              ),
-                            ),
-
-                            // Toggle to Tray Dock mode if desired
-                            TextButton.icon(
-                              onPressed: () {
-                                AudioManager.instance.playTap();
-                                setState(() {
-                                  _isRearrangeMode = false;
-                                  for (final p in _pieces) {
-                                    p.isPlaced = false;
-                                  }
-                                });
-                              },
-                              icon: const Icon(Icons.dock, size: 14, color: Colors.white54),
-                              label: const Text(
-                                'Tray Mode',
-                                style: TextStyle(color: Colors.white54, fontSize: 11),
                               ),
                             ),
                           ],

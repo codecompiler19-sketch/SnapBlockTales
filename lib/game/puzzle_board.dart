@@ -572,34 +572,40 @@ class _BoardGridPainter extends CustomPainter {
     final double cellW = size.width / cols;
     final double cellH = size.height / rows;
 
-    final borderPaint = Paint()
+    final slotBorderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = const Color(0x22FFFFFF);
+      ..strokeWidth = 1.2
+      ..color = const Color(0x2EFFFFFF);
 
-    if (isRearrangeMode) {
-      for (int r = 0; r <= rows; r++) {
-        canvas.drawLine(Offset(0, r * cellH), Offset(size.width, r * cellH), borderPaint);
-      }
-      for (int c = 0; c <= cols; c++) {
-        canvas.drawLine(Offset(c * cellW, 0), Offset(c * cellW, size.height), borderPaint);
-      }
-    } else {
-      for (final piece in pieces) {
-        if (!piece.isPlaced) {
-          canvas.save();
-          canvas.translate(piece.col * cellW, piece.row * cellH);
-          final path = PuzzleEdgeGenerator.buildPiecePath(
-            width: cellW,
-            height: cellH,
-            top: piece.topEdge,
-            right: piece.rightEdge,
-            bottom: piece.bottomEdge,
-            left: piece.leftEdge,
-          );
-          canvas.drawPath(path, borderPaint);
-          canvas.restore();
-        }
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        final slotIndex = r * cols + c;
+        final cellRect = Rect.fromLTWH(c * cellW + 2, r * cellH + 2, cellW - 4, cellH - 4);
+        final rrect = RRect.fromRectAndRadius(cellRect, const Radius.circular(8.0));
+
+        // Draw slot outline
+        canvas.drawRRect(rrect, slotBorderPaint);
+
+        // Faint target slot number in background (1, 2, 3...)
+        final slotNum = '${slotIndex + 1}';
+        final tp = TextPainter(
+          text: TextSpan(
+            text: slotNum,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0x1AFFFFFF),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(
+          canvas,
+          Offset(
+            c * cellW + (cellW - tp.width) / 2,
+            r * cellH + (cellH - tp.height) / 2,
+          ),
+        );
       }
     }
   }
