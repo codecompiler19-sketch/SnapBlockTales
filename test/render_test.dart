@@ -33,8 +33,8 @@ void main() {
     }
   });
 
-  test('Test with actual level_1.png file bytes', () async {
-    final file = File('assets/images/levels/level_1.png');
+  test('Test with actual level_1.webp file bytes', () async {
+    final file = File('assets/images/levels/level_1.webp');
     final bytes = await file.readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();

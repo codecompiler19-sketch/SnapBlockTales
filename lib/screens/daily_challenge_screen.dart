@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/game_mode.dart';
 import '../models/puzzle_level.dart';
 import '../services/audio_manager.dart';
+import '../services/image_service.dart';
 import '../services/progress_service.dart';
 import 'puzzle_game_screen.dart';
 
@@ -131,7 +132,7 @@ class DailyChallengeScreen extends StatelessWidget {
                           fit: StackFit.expand,
                           children: [
                             // Artwork
-                            Image.asset(
+                            ImageService.instance.buildLevelImage(
                               dailyLevel.imagePath,
                               fit: BoxFit.cover,
                             ),

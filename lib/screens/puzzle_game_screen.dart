@@ -515,7 +515,7 @@ class _PuzzleGameScreenState extends State<PuzzleGameScreen>
                         image: _decodedImage,
                         fit: BoxFit.contain,
                       )
-                    : Image.asset(
+                    : ImageService.instance.buildLevelImage(
                         widget.level.imagePath,
                         fit: BoxFit.contain,
                       ),

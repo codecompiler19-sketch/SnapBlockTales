@@ -135,7 +135,7 @@ class PuzzleLevel {
         sectionId: sectionId,
         title: titles[index],
         category: categories[index],
-        imagePath: 'assets/images/levels/level_$id.png',
+        imagePath: 'assets/images/levels/level_$id.webp',
         rows: rows,
         cols: cols,
         targetTimeSeconds: targetTime,

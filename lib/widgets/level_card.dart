@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/puzzle_level.dart';
 import '../services/audio_manager.dart';
+import '../services/image_service.dart';
 
 class LevelCardWidget extends StatelessWidget {
   final PuzzleLevel level;
@@ -76,7 +77,7 @@ class LevelCardWidget extends StatelessWidget {
               // Background Artwork Thumbnail
               Positioned.fill(
                 child: isUnlocked
-                    ? Image.asset(
+                    ? ImageService.instance.buildLevelImage(
                         level.imagePath,
                         fit: BoxFit.cover,
                       )

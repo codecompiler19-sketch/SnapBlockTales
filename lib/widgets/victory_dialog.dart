@@ -3,6 +3,7 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import '../models/puzzle_level.dart';
 import '../services/audio_manager.dart';
+import '../services/image_service.dart';
 import '../services/reward_service.dart';
 
 class VictoryCelebrationDialog extends StatefulWidget {
@@ -237,7 +238,7 @@ class _VictoryCelebrationDialogState extends State<VictoryCelebrationDialog>
                                         width: double.infinity,
                                         height: double.infinity,
                                       )
-                                    : Image.asset(
+                                    : ImageService.instance.buildLevelImage(
                                         widget.level.imagePath,
                                         fit: BoxFit.cover,
                                         width: double.infinity,
