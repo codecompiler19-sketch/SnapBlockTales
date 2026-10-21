@@ -4,13 +4,14 @@ import 'package:jigsaw_3d_adventure/game/puzzle_edge_generator.dart';
 import 'package:jigsaw_3d_adventure/models/player_progress.dart';
 import 'package:jigsaw_3d_adventure/models/puzzle_level.dart';
 import 'package:jigsaw_3d_adventure/models/puzzle_piece.dart';
+import 'package:jigsaw_3d_adventure/screens/home_screen.dart';
 import 'package:jigsaw_3d_adventure/services/reward_service.dart';
 
 void main() {
   testWidgets('App smoke test loads HomeScreen', (WidgetTester tester) async {
     await tester.pumpWidget(const JigsawAdventureApp());
-    expect(find.text('3D JIGSAW'), findsOneWidget);
-    expect(find.text('ADVENTURE'), findsOneWidget);
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.bySemanticsLabel('SnapBlockTales'), findsOneWidget);
   });
 
   group('Puzzle Edge Generator Tests', () {
@@ -82,15 +83,18 @@ void main() {
       final allLevels = PuzzleLevel.getAllLevels();
       expect(allLevels.length, 50);
 
-      // Level 1: 3x3 = 9 pieces
+      // Level 1: 3x3 = 9 pieces (Square)
       expect(allLevels[0].rows, 3);
       expect(allLevels[0].cols, 3);
       expect(allLevels[0].pieceCount, 9);
 
-      // Level 10: 6x7 = 42 pieces
-      expect(allLevels[9].rows, 6);
-      expect(allLevels[9].cols, 7);
-      expect(allLevels[9].pieceCount, 42);
+      // Level 10: 4x4 = 16 pieces (Square)
+      expect(allLevels[9].rows, 4);
+      expect(allLevels[9].cols, 4);
+      expect(allLevels[9].pieceCount, 16);
+
+      // All 50 levels are square puzzles
+      expect(allLevels.every((l) => l.rows == l.cols), isTrue);
     });
 
     test('Reward calculation awards stars correctly', () {

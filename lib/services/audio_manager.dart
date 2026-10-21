@@ -12,6 +12,8 @@ class AudioManager {
   double _sfxVolume = 1.0;
   bool _isMuted = false;
   bool _hapticEnabled = true;
+  bool _soundEnabled = true;
+  bool _musicEnabled = true;
   bool _isInitialized = false;
 
   Future<void> init({
@@ -19,19 +21,25 @@ class AudioManager {
     double sfxVolume = 1.0,
     bool isMuted = false,
     bool hapticEnabled = true,
+    bool soundEnabled = true,
+    bool musicEnabled = true,
   }) async {
     _bgmVolume = bgmVolume;
     _sfxVolume = sfxVolume;
     _isMuted = isMuted;
     _hapticEnabled = hapticEnabled;
+    _soundEnabled = soundEnabled;
+    _musicEnabled = musicEnabled;
 
     try {
       _bgmPlayer = AudioPlayer();
       _sfxPlayer = AudioPlayer();
 
       await _bgmPlayer?.setReleaseMode(ReleaseMode.loop);
-      await _bgmPlayer?.setVolume(_isMuted ? 0.0 : _bgmVolume);
-      await _sfxPlayer?.setVolume(_isMuted ? 0.0 : _sfxVolume);
+      final effBgm = (_isMuted || !_musicEnabled) ? 0.0 : _bgmVolume;
+      final effSfx = (_isMuted || !_soundEnabled) ? 0.0 : _sfxVolume;
+      await _bgmPlayer?.setVolume(effBgm);
+      await _sfxPlayer?.setVolume(effSfx);
       _isInitialized = true;
     } catch (e) {
       // Graceful fallback if platform audio has issues
@@ -44,20 +52,36 @@ class AudioManager {
     double? sfxVolume,
     bool? isMuted,
     bool? hapticEnabled,
+    bool? soundEnabled,
+    bool? musicEnabled,
   }) {
     if (bgmVolume != null) _bgmVolume = bgmVolume;
     if (sfxVolume != null) _sfxVolume = sfxVolume;
     if (isMuted != null) _isMuted = isMuted;
     if (hapticEnabled != null) _hapticEnabled = hapticEnabled;
+    if (soundEnabled != null) _soundEnabled = soundEnabled;
+    if (musicEnabled != null) _musicEnabled = musicEnabled;
 
     if (_isInitialized) {
-      _bgmPlayer?.setVolume(_isMuted ? 0.0 : _bgmVolume);
-      _sfxPlayer?.setVolume(_isMuted ? 0.0 : _sfxVolume);
+      final effBgm = (_isMuted || !_musicEnabled) ? 0.0 : _bgmVolume;
+      final effSfx = (_isMuted || !_soundEnabled) ? 0.0 : _sfxVolume;
+      _bgmPlayer?.setVolume(effBgm);
+      _sfxPlayer?.setVolume(effSfx);
+      if (!_musicEnabled) {
+        _bgmPlayer?.pause();
+      } else if (!_isMuted && _bgmVolume > 0) {
+        _bgmPlayer?.resume().catchError((_) {
+          startBgm();
+        });
+        if (_bgmPlayer?.state != PlayerState.playing) {
+          startBgm();
+        }
+      }
     }
   }
 
   Future<void> startBgm() async {
-    if (!_isInitialized || _isMuted) return;
+    if (!_isInitialized || _isMuted || !_musicEnabled) return;
     try {
       await _bgmPlayer?.play(AssetSource('audio/bgm_loop.wav'));
     } catch (_) {}
@@ -71,7 +95,7 @@ class AudioManager {
   }
 
   Future<void> resumeBgm() async {
-    if (!_isInitialized || _isMuted) return;
+    if (!_isInitialized || _isMuted || !_musicEnabled) return;
     try {
       await _bgmPlayer?.resume();
     } catch (_) {}
@@ -144,7 +168,7 @@ class AudioManager {
   }
 
   Future<void> _playSfx(String assetPath) async {
-    if (!_isInitialized || _isMuted || _sfxVolume <= 0.01) return;
+    if (!_isInitialized || _isMuted || !_soundEnabled || _sfxVolume <= 0.01) return;
     try {
       // Reuse sfx player or play asset source
       await _sfxPlayer?.stop();

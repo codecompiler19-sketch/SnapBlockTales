@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../models/puzzle_piece.dart';
 import '../services/audio_manager.dart';
-import 'puzzle_edge_generator.dart';
 import 'puzzle_piece_renderer.dart';
 
 class PuzzleBoardWidget extends StatefulWidget {
@@ -16,8 +15,10 @@ class PuzzleBoardWidget extends StatefulWidget {
   final bool isMysteryMode;
   final bool isRearrangeMode;
   final bool showNumberBadge;
+  final bool colorBlindMode;
   final VoidCallback onPieceSnapped;
   final VoidCallback onPuzzleCompleted;
+  final VoidCallback? onMoveMade;
 
   const PuzzleBoardWidget({
     super.key,
@@ -30,8 +31,10 @@ class PuzzleBoardWidget extends StatefulWidget {
     this.isMysteryMode = false,
     this.isRearrangeMode = true,
     this.showNumberBadge = false,
+    this.colorBlindMode = false,
     required this.onPieceSnapped,
     required this.onPuzzleCompleted,
+    this.onMoveMade,
   });
 
   @override
@@ -191,6 +194,41 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     return true;
   }
 
+  bool canGroupMoveDirection(Set<int> groupSlots, int dRow, int dCol) {
+    final minRow = groupSlots.map((s) => s ~/ widget.cols).reduce(min);
+    final maxRow = groupSlots.map((s) => s ~/ widget.cols).reduce(max);
+    final minCol = groupSlots.map((s) => s % widget.cols).reduce(min);
+    final maxCol = groupSlots.map((s) => s % widget.cols).reduce(max);
+    return (minRow + dRow >= 0) &&
+        (maxRow + dRow < widget.rows) &&
+        (minCol + dCol >= 0) &&
+        (maxCol + dCol < widget.cols);
+  }
+
+  void moveGroupDirection(int anchorSlot, int dRow, int dCol) {
+    final groupSlots = getConnectedGroupSlots(anchorSlot);
+    final minRow = groupSlots.map((s) => s ~/ widget.cols).reduce(min);
+    final maxRow = groupSlots.map((s) => s ~/ widget.cols).reduce(max);
+    final minCol = groupSlots.map((s) => s % widget.cols).reduce(min);
+    final maxCol = groupSlots.map((s) => s % widget.cols).reduce(max);
+
+    if (minRow + dRow < 0 ||
+        maxRow + dRow >= widget.rows ||
+        minCol + dCol < 0 ||
+        maxCol + dCol >= widget.cols) {
+      AudioManager.instance.playDrop();
+      return;
+    }
+
+    final anchorRow = anchorSlot ~/ widget.cols;
+    final anchorCol = anchorSlot % widget.cols;
+    final targetRow = anchorRow + dRow;
+    final targetCol = anchorCol + dCol;
+    final toAnchorSlot = targetRow * widget.cols + targetCol;
+
+    moveGroup(anchorSlot, toAnchorSlot);
+  }
+
   /// Moves an entire seamlessly joined group together from [fromAnchorSlot] to [toAnchorSlot],
   /// replacing the displaced pieces into the vacated positions like a synchronized team.
   void moveGroup(int fromAnchorSlot, int toAnchorSlot) {
@@ -253,6 +291,11 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
         vacatedSlots.where((s) => !displacedSlotMoves.values.contains(s)).toList();
     final remainingDisplaced =
         displacedSlots.where((s) => !displacedSlotMoves.containsKey(s)).toList();
+
+    // Sort to align columns nicely when sliding down
+    remainingDisplaced.sort((a, b) => (a % widget.cols).compareTo(b % widget.cols));
+    remainingVacated.sort((a, b) => (a % widget.cols).compareTo(b % widget.cols));
+
     for (int i = 0; i < remainingDisplaced.length; i++) {
       displacedSlotMoves[remainingDisplaced[i]] = remainingVacated[i];
     }
@@ -282,6 +325,8 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
       _hoveredSlot = null;
       _activeDraggingGroup = {};
     });
+
+    widget.onMoveMade?.call();
 
     final newJoined = countTotalJoinedEdges();
     final newlyJoined = newJoined > prevJoined;
@@ -370,6 +415,7 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
 
     AudioManager.instance.playSnap();
     widget.onPieceSnapped();
+    widget.onMoveMade?.call();
 
     _checkCompletion();
 
@@ -569,17 +615,43 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
                                     setState(() {
                                       _selectedSlot = slotIndex;
                                     });
-                                  } else if (selectedGroup.contains(slotIndex)) {
+                                  } else if (slotIndex == _selectedSlot) {
+                                    // Clicking same anchor deselects
                                     AudioManager.instance.playDrop();
                                     setState(() {
                                       _selectedSlot = null;
                                     });
+                                  } else if (selectedGroup.contains(slotIndex)) {
+                                    // Tapped another piece in the SAME connected group: move towards that piece's direction!
+                                    final anchorRow = _selectedSlot! ~/ widget.cols;
+                                    final anchorCol = _selectedSlot! % widget.cols;
+                                    final dRow = (slotRow - anchorRow).sign;
+                                    final dCol = (slotCol - anchorCol).sign;
+                                    if (dRow != 0 || dCol != 0) {
+                                      moveGroupDirection(_selectedSlot!, dRow, dCol);
+                                    } else {
+                                      setState(() {
+                                        _selectedSlot = slotIndex;
+                                      });
+                                    }
                                   } else {
+                                    // Tapped slot outside group: shift group to that slot!
                                     moveGroup(_selectedSlot!, slotIndex);
                                   }
                                 },
                                 child: Draggable<int>(
                                   data: slotIndex,
+                                  dragAnchorStrategy: (draggable, context, position) {
+                                    final group = getConnectedGroupSlots(slotIndex);
+                                    final anchorRow = slotIndex ~/ widget.cols;
+                                    final anchorCol = slotIndex % widget.cols;
+                                    final minRow = group.map((s) => s ~/ widget.cols).reduce(min);
+                                    final minCol = group.map((s) => s % widget.cols).reduce(min);
+                                    return Offset(
+                                      (anchorCol - minCol + 0.5) * pieceW,
+                                      (anchorRow - minRow + 0.5) * pieceH,
+                                    );
+                                  },
                                   onDragStarted: () {
                                     AudioManager.instance.playPickup();
                                     final group = getConnectedGroupSlots(slotIndex);
@@ -659,6 +731,10 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
                         ),
                       );
                     }),
+
+                  // 6. Floating Direction Controls for connected multi-piece groups
+                  if (widget.isRearrangeMode && _selectedSlot != null)
+                    ..._buildGroupActionControls(boardW, boardH, pieceW, pieceH),
                 ],
               ),
             ),
@@ -676,63 +752,234 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
     double boardW,
     double boardH,
   ) {
-    final anchorRow = anchorSlot ~/ widget.cols;
-    final anchorCol = anchorSlot % widget.cols;
+    final minRow = groupSlots.map((s) => s ~/ widget.cols).reduce(min);
+    final maxRow = groupSlots.map((s) => s ~/ widget.cols).reduce(max);
+    final minCol = groupSlots.map((s) => s % widget.cols).reduce(min);
+    final maxCol = groupSlots.map((s) => s % widget.cols).reduce(max);
+
+    final groupW = (maxCol - minCol + 1) * pieceW;
+    final groupH = (maxRow - minRow + 1) * pieceH;
 
     return Material(
       color: Colors.transparent,
+      elevation: 0,
       child: Transform.scale(
-        scale: 1.06,
+        scale: 1.05,
         child: SizedBox(
-          width: pieceW,
-          height: pieceH,
+          width: groupW,
+          height: groupH,
           child: Stack(
             clipBehavior: Clip.none,
-            children: groupSlots.map((s) {
-              final sRow = s ~/ widget.cols;
-              final sCol = s % widget.cols;
-              final relX = (sCol - anchorCol) * pieceW;
-              final relY = (sRow - anchorRow) * pieceH;
-
-              final piece = widget.pieces.firstWhere(
-                (p) => p.currentSlot == s,
-                orElse: () => widget.pieces[s],
-              );
-              final joinTop = isSlotJoinedTop(sRow, sCol, piece);
-              final joinRight = isSlotJoinedRight(sRow, sCol, piece);
-              final joinBottom = isSlotJoinedBottom(sRow, sCol, piece);
-              final joinLeft = isSlotJoinedLeft(sRow, sCol, piece);
-
-              return Positioned(
-                left: relX,
-                top: relY,
-                width: pieceW,
-                height: pieceH,
-                child: CustomPaint(
-                  size: Size(pieceW, pieceH),
-                  painter: PuzzlePiecePainter(
-                    image: widget.image,
-                    piece: piece,
-                    pieceWidth: pieceW,
-                    pieceHeight: pieceH,
-                    boardWidth: boardW,
-                    boardHeight: boardH,
-                    isLifted: true,
-                    isTileMode: true,
-                    showNumberBadge: widget.showNumberBadge,
-                    isMysteryHidden: widget.isMysteryMode && !piece.isPlaced,
-                    joinTop: joinTop,
-                    joinRight: joinRight,
-                    joinBottom: joinBottom,
-                    joinLeft: joinLeft,
+            children: [
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withOpacity(0.4),
+                        blurRadius: 20,
+                        spreadRadius: 3,
+                      ),
+                      const BoxShadow(
+                        color: Color(0x60000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }).toList(),
+              ),
+              ...groupSlots.map((s) {
+                final sRow = s ~/ widget.cols;
+                final sCol = s % widget.cols;
+                final relX = (sCol - minCol) * pieceW;
+                final relY = (sRow - minRow) * pieceH;
+
+                final piece = widget.pieces.firstWhere(
+                  (p) => p.currentSlot == s,
+                  orElse: () => widget.pieces[s],
+                );
+                final joinTop = isSlotJoinedTop(sRow, sCol, piece);
+                final joinRight = isSlotJoinedRight(sRow, sCol, piece);
+                final joinBottom = isSlotJoinedBottom(sRow, sCol, piece);
+                final joinLeft = isSlotJoinedLeft(sRow, sCol, piece);
+
+                return Positioned(
+                  left: relX,
+                  top: relY,
+                  width: pieceW,
+                  height: pieceH,
+                  child: CustomPaint(
+                    size: Size(pieceW, pieceH),
+                    painter: PuzzlePiecePainter(
+                      image: widget.image,
+                      piece: piece,
+                      pieceWidth: pieceW,
+                      pieceHeight: pieceH,
+                      boardWidth: boardW,
+                      boardHeight: boardH,
+                      isLifted: true,
+                      isTileMode: true,
+                      showNumberBadge: widget.showNumberBadge || widget.colorBlindMode,
+                      isMysteryHidden: widget.isMysteryMode && !piece.isPlaced,
+                      joinTop: joinTop,
+                      joinRight: joinRight,
+                      joinBottom: joinBottom,
+                      joinLeft: joinLeft,
+                    ),
+                  ),
+                );
+              }),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildGroupActionControls(
+    double boardW,
+    double boardH,
+    double pieceW,
+    double pieceH,
+  ) {
+    if (_selectedSlot == null) return [];
+    final group = getConnectedGroupSlots(_selectedSlot!);
+    if (group.length < 2) return [];
+
+    final canUp = canGroupMoveDirection(group, -1, 0);
+    final canDown = canGroupMoveDirection(group, 1, 0);
+    final canLeft = canGroupMoveDirection(group, 0, -1);
+    final canRight = canGroupMoveDirection(group, 0, 1);
+
+    final minRow = group.map((s) => s ~/ widget.cols).reduce(min);
+    final maxRow = group.map((s) => s ~/ widget.cols).reduce(max);
+    final minCol = group.map((s) => s % widget.cols).reduce(min);
+    final maxCol = group.map((s) => s % widget.cols).reduce(max);
+
+    final groupCenterCol = (minCol + maxCol + 1) / 2.0;
+    final groupCenterRow = (minRow + maxRow + 1) / 2.0;
+
+    final List<Widget> controls = [];
+
+    Widget buildMoveButton({
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      required double left,
+      required double top,
+      double width = 145,
+      double height = 36,
+    }) {
+      return Positioned(
+        left: left,
+        top: top,
+        width: width,
+        height: height,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFB300), Color(0xFFFF8F00)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white, width: 1.5),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x90000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Color(0x80FFB300),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (canUp) {
+      final btnTop = max(10.0, minRow * pieceH - 42.0);
+      final btnLeft = (groupCenterCol * pieceW - 75.0).clamp(8.0, boardW - 158.0);
+      controls.add(
+        buildMoveButton(
+          icon: Icons.arrow_upward_rounded,
+          label: 'MOVE TEAM UP',
+          onTap: () => moveGroupDirection(_selectedSlot!, -1, 0),
+          left: btnLeft,
+          top: btnTop,
+        ),
+      );
+    }
+
+    if (canDown) {
+      final btnTop = min(boardH - 46.0, (maxRow + 1) * pieceH + 6.0);
+      final btnLeft = (groupCenterCol * pieceW - 85.0).clamp(8.0, boardW - 178.0);
+      controls.add(
+        buildMoveButton(
+          icon: Icons.arrow_downward_rounded,
+          label: 'MOVE TEAM DOWN',
+          onTap: () => moveGroupDirection(_selectedSlot!, 1, 0),
+          left: btnLeft,
+          top: btnTop,
+          width: 165,
+        ),
+      );
+    }
+
+    if (canLeft) {
+      final btnLeft = max(8.0, minCol * pieceW - 55.0);
+      final btnTop = (groupCenterRow * pieceH - 18.0).clamp(8.0, boardH - 44.0);
+      controls.add(
+        buildMoveButton(
+          icon: Icons.arrow_back_rounded,
+          label: 'LEFT',
+          onTap: () => moveGroupDirection(_selectedSlot!, 0, -1),
+          left: btnLeft,
+          top: btnTop,
+          width: 80,
+        ),
+      );
+    }
+
+    if (canRight) {
+      final btnLeft = min(boardW - 90.0, (maxCol + 1) * pieceW + 6.0);
+      final btnTop = (groupCenterRow * pieceH - 18.0).clamp(8.0, boardH - 44.0);
+      controls.add(
+        buildMoveButton(
+          icon: Icons.arrow_forward_rounded,
+          label: 'RIGHT',
+          onTap: () => moveGroupDirection(_selectedSlot!, 0, 1),
+          left: btnLeft,
+          top: btnTop,
+          width: 90,
+        ),
+      );
+    }
+
+    return controls;
   }
 
   Widget _buildSlotPiece(
@@ -789,7 +1036,7 @@ class PuzzleBoardWidgetState extends State<PuzzleBoardWidget>
               boardHeight: boardH,
               isLifted: isSelected,
               isTileMode: true,
-              showNumberBadge: widget.showNumberBadge,
+              showNumberBadge: widget.showNumberBadge || widget.colorBlindMode,
               isMysteryHidden: widget.isMysteryMode && !piece.isPlaced,
               joinTop: joinTop,
               joinRight: joinRight,

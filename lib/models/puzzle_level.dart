@@ -38,167 +38,96 @@ class PuzzleLevel {
       int reward = 50 + (sectionId * 25) + (subLevel * 5);
 
       if (sectionId == 1) {
-        // Section 1: Beginner (Exact spec levels 1-10)
-        switch (subLevel) {
-          case 1:
-            rows = 3;
-            cols = 3;
-            targetTime = 90;
-            break;
-          case 2:
-            rows = 3;
-            cols = 3;
-            targetTime = 90;
-            break;
-          case 3:
-            rows = 3;
-            cols = 4;
-            targetTime = 120;
-            break;
-          case 4:
-            rows = 4;
-            cols = 4;
-            targetTime = 150;
-            break;
-          case 5:
-            rows = 4;
-            cols = 4;
-            targetTime = 150;
-            break;
-          case 6:
-            rows = 4;
-            cols = 5;
-            targetTime = 180;
-            break;
-          case 7:
-            rows = 5;
-            cols = 5;
-            targetTime = 220;
-            break;
-          case 8:
-            rows = 5;
-            cols = 6;
-            targetTime = 260;
-            break;
-          case 9:
-            rows = 6;
-            cols = 6;
-            targetTime = 300;
-            break;
-          case 10:
-          default:
-            rows = 6;
-            cols = 7;
-            targetTime = 360;
-            break;
+        // Section 1: Beginner (Levels 1-10) - All Square Grids
+        if (subLevel <= 5) {
+          rows = 3;
+          cols = 3; // 3x3 = 9 pieces (Square)
+          targetTime = 90;
+        } else {
+          rows = 4;
+          cols = 4; // 4x4 = 16 pieces (Square)
+          targetTime = 150;
         }
       } else if (sectionId == 2) {
-        // Section 2: Explorer (Levels 11-20)
-        if (subLevel <= 3) {
+        // Section 2: Explorer (Levels 11-20) - All Square Grids
+        if (subLevel <= 5) {
           rows = 4;
-          cols = 4;
+          cols = 4; // 4x4 = 16 pieces (Square)
           targetTime = 160;
-        } else if (subLevel <= 6) {
-          rows = 4;
-          cols = 5;
-          targetTime = 200;
-        } else if (subLevel <= 8) {
-          rows = 5;
-          cols = 5;
-          targetTime = 250;
         } else {
           rows = 5;
-          cols = 6;
-          targetTime = 300;
+          cols = 5; // 5x5 = 25 pieces (Square)
+          targetTime = 240;
         }
       } else if (sectionId == 3) {
-        // Section 3: Adventure (Levels 21-30)
-        if (subLevel <= 3) {
+        // Section 3: Adventure (Levels 21-30) - All Square Grids
+        if (subLevel <= 5) {
           rows = 5;
-          cols = 5;
+          cols = 5; // 5x5 = 25 pieces (Square)
           targetTime = 240;
-        } else if (subLevel <= 6) {
-          rows = 5;
-          cols = 6;
-          targetTime = 280;
-        } else if (subLevel <= 8) {
-          rows = 6;
-          cols = 6;
-          targetTime = 340;
         } else {
           rows = 6;
-          cols = 7;
-          targetTime = 400;
+          cols = 6; // 6x6 = 36 pieces (Square)
+          targetTime = 320;
         }
       } else if (sectionId == 4) {
-        // Section 4: Expert (Levels 31-40)
-        if (subLevel <= 3) {
+        // Section 4: Expert (Levels 31-40) - All Square Grids
+        if (subLevel <= 5) {
           rows = 6;
-          cols = 6;
-          targetTime = 330;
-        } else if (subLevel <= 6) {
-          rows = 6;
-          cols = 7;
-          targetTime = 390;
-        } else if (subLevel <= 8) {
-          rows = 7;
-          cols = 7;
-          targetTime = 450;
+          cols = 6; // 6x6 = 36 pieces (Square)
+          targetTime = 320;
         } else {
           rows = 7;
-          cols = 8;
-          targetTime = 520;
+          cols = 7; // 7x7 = 49 pieces (Square)
+          targetTime = 420;
         }
       } else {
-        // Section 5: Master (Levels 41-50)
-        if (subLevel <= 3) {
-          rows = 6;
-          cols = 7;
-          targetTime = 380;
-        } else if (subLevel <= 6) {
+        // Section 5: Master (Levels 41-50) - All Square Grids
+        if (subLevel <= 5) {
           rows = 7;
-          cols = 7;
-          targetTime = 440;
-        } else if (subLevel <= 8) {
-          rows = 7;
-          cols = 8;
-          targetTime = 520;
+          cols = 7; // 7x7 = 49 pieces (Square)
+          targetTime = 420;
         } else {
           rows = 8;
-          cols = 8;
-          targetTime = 600;
+          cols = 8; // 8x8 = 64 pieces (Square)
+          targetTime = 550;
         }
       }
 
       final titles = [
-        // S1
-        'Father & Son Workshop', 'Emerald Woods', 'Lavender Meadow', 'Alpine Peak', 'Autumn Cascade',
-        'Bamboo Zen', 'Cherry Blossom', 'Tropical Lagoon', 'Golden Canyon', 'Starry Summit',
-        // S2
-        'Savanna Horizon', 'Coral Reef', 'Rainforest Canopy', 'Desert Mirage', 'Deep Trench',
-        'Zebra Crossing', 'Bioluminescent Cove', 'Cheetah Prowl', 'Mangrove Sanctuary', 'Orca Bay',
-        // S3
-        'Floating Citadel', 'Dragon Spine Peak', 'Crystal Caverns', 'Enchanted Glen', 'Obsidian Spire',
-        'Celestial Keep', 'Whispering Forest', 'Moonlit Bridge', 'Phoenix Nest', 'Starlight Palace',
-        // S4
-        'Orion Nebula', 'Andromeda Spiral', 'Solar Flare', 'Cosmic Gateway', 'Supernova Cloud',
-        'Ringed Giant', 'Interstellar Void', 'Pulsar Beam', 'Quantum Realm', 'Event Horizon',
-        // S5
-        'Sun God Temple', 'Gilded Pyramid', 'Mayan Observatory', 'Lost Atlantis', 'Taj Reverie',
-        'Colosseum Dawn', 'Angkor Wonder', 'Petra Rose Canyon', 'Stonehenge Solstice', 'Great Citadel of Kings',
+        // S1: Art & Crafts (Levels 1-10)
+        'Little Artists Studio', 'Colorful Birdhouse', 'Garden Flowers', 'Rainbow Art Room', 'Pottery with Grandma',
+        'Sculptor Workshop', 'Colorful Clay Pots', 'Giant Finger Painting', 'Art Exhibition', 'Paper Butterflies',
+        // S2: Vehicles & Travel (Levels 11-20)
+        'Little Red Fire Truck', 'Adventures on Toy Train', 'Busy Construction Site', 'Friendly School Bus', 'Hot Air Balloon',
+        'Airport Adventure', 'Little Farm Tractor', 'City Traffic Scene', 'Sailing at Harbor', 'Space Rocket Launch',
+        // S3: Toyland Fun (Levels 21-30)
+        'Teddy Bear Picnic', 'Giant Block Tower', 'Toy Shop Adventure', 'Dollhouse Family', 'Toy Car Race',
+        'Magical Toy Workshop', 'Block Castle', 'Stuffed Animal Parade', 'Robot Birthday Party', 'Playground Adventure',
+        // S4: Cute Animals (Levels 31-40)
+        'Farmer & Baby Lambs', 'Puppies in Garden', 'Kittens Butterfly Chase', 'Feeding Ducks at Pond', 'Baby Elephant Bath',
+        'Panda Bamboo Picnic', 'Squirrel Acorn Collection', 'Day at Petting Zoo', 'Penguin Snowy Walk', 'Forest Animals Party',
+        // S5: Grand Puzzles (Levels 41-50)
+        'Grand Balloon Flight', 'Cosmic Rocket Master', 'Toy Workshop Master', 'Robot Galaxy Party', 'Playground Wonderland',
+        'Puppy Garden Dream', 'Elephant Oasis', 'Panda Harmony', 'Penguin Ice Kingdom', 'Forest Grand Celebration',
       ];
 
       final categories = [
-        'Nature', 'Nature', 'Nature', 'Nature', 'Nature',
-        'Nature', 'Nature', 'Nature', 'Nature', 'Nature',
-        'Wildlife', 'Ocean', 'Wildlife', 'Desert', 'Ocean',
-        'Wildlife', 'Ocean', 'Wildlife', 'Nature', 'Ocean',
-        'Fantasy', 'Fantasy', 'Fantasy', 'Fantasy', 'Fantasy',
-        'Fantasy', 'Fantasy', 'Fantasy', 'Fantasy', 'Fantasy',
-        'Cosmic', 'Cosmic', 'Cosmic', 'Cosmic', 'Cosmic',
-        'Cosmic', 'Cosmic', 'Cosmic', 'Cosmic', 'Cosmic',
-        'Ancient', 'Ancient', 'Ancient', 'Ancient', 'Ancient',
-        'Ancient', 'Ancient', 'Ancient', 'Ancient', 'Ancient',
+        // S1
+        'Art', 'Art', 'Art', 'Art', 'Crafts',
+        'Crafts', 'Crafts', 'Art', 'Art', 'Crafts',
+        // S2
+        'Vehicles', 'Vehicles', 'Vehicles', 'Vehicles', 'Travel',
+        'Travel', 'Vehicles', 'City', 'Travel', 'Space',
+        // S3
+        'Toyland', 'Toyland', 'Toyland', 'Toyland', 'Toyland',
+        'Toyland', 'Toyland', 'Toyland', 'Toyland', 'Toyland',
+        // S4
+        'Animals', 'Animals', 'Animals', 'Animals', 'Animals',
+        'Animals', 'Animals', 'Animals', 'Animals', 'Animals',
+        // S5
+        'Master', 'Master', 'Master', 'Master', 'Master',
+        'Master', 'Master', 'Master', 'Master', 'Master',
       ];
 
       return PuzzleLevel(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'coin_transaction.dart';
 
 class SavedGameState {
   final int levelId;
@@ -55,13 +56,29 @@ class PlayerProgress {
   bool hapticEnabled;
   bool leftHanded;
   bool reducedMotion;
+  bool soundEnabled;
+  bool musicEnabled;
+  bool darkMode;
+  bool colorBlindMode;
+  bool congratsPopup;
+  bool notificationsEnabled;
   SavedGameState? activeSavedGame;
   String? lastDailyDate;
   int dailyStreak;
   List<String> claimedAchievementIds;
 
+  // Coins & Economy
+  List<CoinTransaction> transactions;
+  int inventoryHints;
+  List<String> unlockedPacks;
+  List<String> unlockedCosmetics;
+  int dailyRewardDay;
+  String? lastDailyRewardClaimDate;
+  int adsWatchedToday;
+  String? lastAdWatchedDate;
+
   PlayerProgress({
-    this.coins = 200, // Starter bonus!
+    this.coins = 500, // Starter bonus: 500 Coins
     this.highestUnlockedLevel = 1,
     this.highestUnlockedSection = 1,
     Map<int, int>? levelStars,
@@ -72,13 +89,43 @@ class PlayerProgress {
     this.hapticEnabled = true,
     this.leftHanded = false,
     this.reducedMotion = false,
+    this.soundEnabled = true,
+    this.musicEnabled = true,
+    this.darkMode = true,
+    this.colorBlindMode = false,
+    this.congratsPopup = true,
+    this.notificationsEnabled = true,
     this.activeSavedGame,
     this.lastDailyDate,
     this.dailyStreak = 0,
     List<String>? claimedAchievementIds,
+    List<CoinTransaction>? transactions,
+    this.inventoryHints = 3,
+    List<String>? unlockedPacks,
+    List<String>? unlockedCosmetics,
+    this.dailyRewardDay = 1,
+    this.lastDailyRewardClaimDate,
+    this.adsWatchedToday = 0,
+    this.lastAdWatchedDate,
   })  : levelStars = levelStars ?? {},
         levelBestTimes = levelBestTimes ?? {},
-        claimedAchievementIds = claimedAchievementIds ?? [];
+        claimedAchievementIds = claimedAchievementIds ?? [],
+        transactions = transactions ?? [],
+        unlockedPacks = unlockedPacks ?? ['classic_starter'],
+        unlockedCosmetics = unlockedCosmetics ?? ['default_frame'];
+
+  bool get canClaimDailyRewardToday {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return lastDailyRewardClaimDate != today;
+  }
+
+  int get effectiveAdsWatchedToday {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (lastAdWatchedDate != today) {
+      return 0;
+    }
+    return adsWatchedToday;
+  }
 
   int get totalStars =>
       levelStars.values.fold(0, (sum, stars) => sum + stars);
@@ -90,6 +137,17 @@ class PlayerProgress {
 
   int getStarsForLevel(int levelId) => levelStars[levelId] ?? 0;
   int? getBestTimeForLevel(int levelId) => levelBestTimes[levelId];
+
+  void skipLevel(int levelId) {
+    // Unlock next level without awarding stars or completion coins
+    if (levelId == highestUnlockedLevel && levelId < 50) {
+      highestUnlockedLevel = levelId + 1;
+    }
+    // Clear active saved game
+    if (activeSavedGame?.levelId == levelId) {
+      activeSavedGame = null;
+    }
+  }
 
   void completeLevel(int levelId, int stars, int timeSeconds) {
     // Record stars (keep best)
@@ -134,10 +192,24 @@ class PlayerProgress {
         'hapticEnabled': hapticEnabled,
         'leftHanded': leftHanded,
         'reducedMotion': reducedMotion,
+        'soundEnabled': soundEnabled,
+        'musicEnabled': musicEnabled,
+        'darkMode': darkMode,
+        'colorBlindMode': colorBlindMode,
+        'congratsPopup': congratsPopup,
+        'notificationsEnabled': notificationsEnabled,
         'activeSavedGame': activeSavedGame?.toJson(),
         'lastDailyDate': lastDailyDate,
         'dailyStreak': dailyStreak,
         'claimedAchievementIds': claimedAchievementIds,
+        'transactions': transactions.map((t) => t.toJson()).toList(),
+        'inventoryHints': inventoryHints,
+        'unlockedPacks': unlockedPacks,
+        'unlockedCosmetics': unlockedCosmetics,
+        'dailyRewardDay': dailyRewardDay,
+        'lastDailyRewardClaimDate': lastDailyRewardClaimDate,
+        'adsWatchedToday': effectiveAdsWatchedToday,
+        'lastAdWatchedDate': lastAdWatchedDate,
       };
 
   factory PlayerProgress.fromJson(Map<String, dynamic> json) {
@@ -147,8 +219,13 @@ class PlayerProgress {
     final rawTimes = json['levelBestTimes'] as Map<String, dynamic>? ?? {};
     final times = rawTimes.map((k, v) => MapEntry(int.parse(k), v as int));
 
+    final rawTx = json['transactions'] as List<dynamic>? ?? [];
+    final txList = rawTx
+        .map((e) => CoinTransaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+
     return PlayerProgress(
-      coins: json['coins'] as int? ?? 200,
+      coins: json['coins'] as int? ?? 1250,
       highestUnlockedLevel: json['highestUnlockedLevel'] as int? ?? 1,
       highestUnlockedSection: json['highestUnlockedSection'] as int? ?? 1,
       levelStars: stars,
@@ -159,6 +236,12 @@ class PlayerProgress {
       hapticEnabled: json['hapticEnabled'] as bool? ?? true,
       leftHanded: json['leftHanded'] as bool? ?? false,
       reducedMotion: json['reducedMotion'] as bool? ?? false,
+      soundEnabled: json['soundEnabled'] as bool? ?? true,
+      musicEnabled: json['musicEnabled'] as bool? ?? true,
+      darkMode: json['darkMode'] as bool? ?? true,
+      colorBlindMode: json['colorBlindMode'] as bool? ?? false,
+      congratsPopup: json['congratsPopup'] as bool? ?? true,
+      notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       activeSavedGame: json['activeSavedGame'] != null
           ? SavedGameState.fromJson(
               json['activeSavedGame'] as Map<String, dynamic>)
@@ -170,6 +253,20 @@ class PlayerProgress {
                   ?.map((e) => e as String)
                   .toList() ??
               [],
+      transactions: txList,
+      inventoryHints: json['inventoryHints'] as int? ?? 3,
+      unlockedPacks: (json['unlockedPacks'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['classic_starter'],
+      unlockedCosmetics: (json['unlockedCosmetics'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          ['default_frame'],
+      dailyRewardDay: json['dailyRewardDay'] as int? ?? 1,
+      lastDailyRewardClaimDate: json['lastDailyRewardClaimDate'] as String?,
+      adsWatchedToday: json['adsWatchedToday'] as int? ?? 0,
+      lastAdWatchedDate: json['lastAdWatchedDate'] as String?,
     );
   }
 

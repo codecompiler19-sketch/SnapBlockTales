@@ -81,11 +81,14 @@ class LevelCardWidget extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     : Container(
-                        color: const Color(0xFF12141F),
-                        child: const Icon(
-                          Icons.lock_rounded,
-                          size: 38,
-                          color: Colors.white24,
+                        color: const Color(0xFF141724),
+                        child: Center(
+                          child: Image.asset(
+                            'assets/images/3d/node_level_locked.png',
+                            width: 68,
+                            height: 68,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
               ),
@@ -182,16 +185,20 @@ class LevelCardWidget extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // 3 Stars
+                          // 3 Stars (3D Stars)
                           Row(
                             children: List.generate(3, (i) {
                               final isEarned = i < earnedStars;
-                              return Icon(
-                                Icons.star_rounded,
-                                size: 16,
-                                color: isEarned
-                                    ? const Color(0xFFFFD700)
-                                    : Colors.white24,
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 3),
+                                child: Image.asset(
+                                  isEarned
+                                      ? 'assets/images/3d/star_mini_gold.png'
+                                      : 'assets/images/3d/icon_star_empty_3d.png',
+                                  width: 15,
+                                  height: 15,
+                                  fit: BoxFit.contain,
+                                ),
                               );
                             }),
                           ),

@@ -5,6 +5,7 @@ import '../services/audio_manager.dart';
 import '../services/progress_service.dart';
 import '../widgets/floating_pieces_background.dart';
 import 'achievements_screen.dart';
+import 'coins_shop_screen.dart';
 import 'daily_challenge_screen.dart';
 import 'photo_puzzle_screen.dart';
 import 'puzzle_game_screen.dart';
@@ -209,41 +210,81 @@ class _HomeScreenState extends State<HomeScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Coin Balance
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(0xFFFFD700).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.monetization_on,
-                                size: 20,
-                                color: Color(0xFFFFD700),
+                        // Coin Balance (Tappable -> Opens Coins Shop)
+                        InkWell(
+                          onTap: () {
+                            AudioManager.instance.playTap();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CoinsShopScreen(),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${progress.coins}',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFFD700),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            height: 38,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(19),
+                              image: const DecorationImage(
+                                image: AssetImage('assets/images/3d/panel_header_currency.png'),
+                                fit: BoxFit.fill,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.asset(
+                                  'assets/images/3d/icon_coin_gold_3d.png',
+                                  width: 20,
+                                  height: 20,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${progress.coins}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFFFE082),
+                                    shadows: [
+                                      Shadow(
+                                        color: Color(0xFF78350F),
+                                        offset: Offset(1, 1),
+                                        blurRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFFD700),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.add,
+                                    size: 10,
+                                    color: Color(0xFF78350F),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
                         // Stars Count
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
+                              horizontal: 12, vertical: 5),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(20),
@@ -253,12 +294,12 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           child: Row(
                             children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 22,
-                                color: Colors.amberAccent,
+                              Image.asset(
+                                'assets/images/3d/icon_star_gold_3d.png',
+                                width: 22,
+                                height: 22,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 6),
                               Text(
                                 '${progress.totalStars}',
                                 style: const TextStyle(
@@ -271,22 +312,49 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
 
-                        // Settings Icon
-                        IconButton(
-                          icon: const Icon(
-                            Icons.settings_rounded,
-                            color: Colors.white70,
-                            size: 26,
-                          ),
-                          onPressed: () {
-                            AudioManager.instance.playTap();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsScreen(),
+                        // Right action buttons: 3D Shop & 3D Settings
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                AudioManager.instance.playTap();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const CoinsShopScreen(),
+                                  ),
+                                );
+                              },
+                              child: Tooltip(
+                                message: 'Coins Shop',
+                                child: Image.asset(
+                                  'assets/images/3d/btn_shop_3d.png',
+                                  width: 36,
+                                  height: 36,
+                                ),
                               ),
-                            );
-                          },
+                            ),
+                            const SizedBox(width: 10),
+                            GestureDetector(
+                              onTap: () {
+                                AudioManager.instance.playTap();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SettingsScreen(),
+                                  ),
+                                );
+                              },
+                              child: Tooltip(
+                                message: 'Settings',
+                                child: Image.asset(
+                                  'assets/images/3d/btn_menu_settings_3d.png',
+                                  width: 36,
+                                  height: 36,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -330,74 +398,61 @@ class _HomeScreenState extends State<HomeScreen>
                                 );
                               },
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
 
-                            // Game Title with 3D gradient look
-                            ShaderMask(
-                              shaderCallback: (bounds) =>
-                                  const LinearGradient(
-                                colors: [
-                                  Color(0xFFFFE082),
-                                  Color(0xFFFFB300),
-                                  Color(0xFFFFA000),
-                                ],
-                              ).createShader(bounds),
-                              child: const Text(
-                                '3D JIGSAW',
-                                style: TextStyle(
-                                  fontSize: 34,
+                            // 3D Game Title Logo
+                            Image.asset(
+                              'assets/images/3d/title_logo_3d.png',
+                              width: 280,
+                              height: 80,
+                              fit: BoxFit.contain,
+                              semanticLabel: 'SnapBlockTales',
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Large Primary 3D PLAY Button (clean button without text overwrite)
+                            GestureDetector(
+                              onTap: _playNextLevel,
+                              child: Container(
+                                width: 220,
+                                height: 72,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(36),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF10B981).withOpacity(0.35),
+                                      blurRadius: 20,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Image.asset(
+                                  'assets/images/3d/btn_play_3d.png',
+                                  width: 220,
+                                  height: 72,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Game level shown clearly below the play button in middle of screen
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFFFD700).withOpacity(0.4),
+                                ),
+                              ),
+                              child: Text(
+                                'LEVEL ${progress.highestUnlockedLevel}',
+                                style: const TextStyle(
+                                  fontSize: 15,
                                   fontWeight: FontWeight.w900,
-                                  letterSpacing: 3.0,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const Text(
-                              'ADVENTURE',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 5.0,
-                                color: Color(0xFF90CAF9),
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-
-                            // Large Primary PLAY Button
-                            SizedBox(
-                              width: 240,
-                              height: 60,
-                              child: ElevatedButton(
-                                onPressed: _playNextLevel,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFFFD700),
-                                  foregroundColor: const Color(0xFF1E2235),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                  elevation: 10,
-                                  shadowColor: const Color(0x80FFD700),
-                                ),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.play_arrow_rounded,
-                                        size: 34,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'PLAY LEVEL ${progress.highestUnlockedLevel}',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  letterSpacing: 2.0,
+                                  color: Color(0xFFFFD700),
                                 ),
                               ),
                             ),
@@ -477,6 +532,7 @@ class _HomeScreenState extends State<HomeScreen>
                           title: 'Sections',
                           icon: Icons.grid_view_rounded,
                           color: const Color(0xFF3B82F6),
+                          image3d: 'assets/images/3d/btn_sections_3d.png',
                           onTap: () {
                             AudioManager.instance.playTap();
                             Navigator.push(
@@ -493,6 +549,7 @@ class _HomeScreenState extends State<HomeScreen>
                           title: 'My Photo',
                           icon: Icons.add_photo_alternate_rounded,
                           color: const Color(0xFFEC4899),
+                          image3d: 'assets/images/3d/btn_custom_photo_3d.png',
                           onTap: () {
                             AudioManager.instance.playTap();
                             Navigator.push(
@@ -509,6 +566,7 @@ class _HomeScreenState extends State<HomeScreen>
                           title: 'Daily Puzzle',
                           icon: Icons.calendar_month_rounded,
                           color: const Color(0xFFF59E0B),
+                          image3d: 'assets/images/3d/btn_daily_challenge_3d.png',
                           onTap: () {
                             AudioManager.instance.playTap();
                             Navigator.push(
@@ -525,6 +583,7 @@ class _HomeScreenState extends State<HomeScreen>
                           title: 'Rewards',
                           icon: Icons.emoji_events_rounded,
                           color: const Color(0xFF10B981),
+                          image3d: 'assets/images/3d/btn_achievements_3d.png',
                           onTap: () {
                             AudioManager.instance.playTap();
                             Navigator.push(
@@ -551,14 +610,15 @@ class _HomeScreenState extends State<HomeScreen>
     required String title,
     required IconData icon,
     required Color color,
+    String? image3d,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: 76,
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        width: 78,
+        padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.06),
           borderRadius: BorderRadius.circular(16),
@@ -570,15 +630,23 @@ class _HomeScreenState extends State<HomeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 5),
+            if (image3d != null)
+              Image.asset(
+                image3d,
+                width: 34,
+                height: 34,
+                fit: BoxFit.contain,
+              )
+            else
+              Icon(icon, color: color, size: 26),
+            const SizedBox(height: 4),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: Colors.white70,
+                color: Colors.white,
               ),
             ),
           ],

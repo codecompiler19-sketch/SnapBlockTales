@@ -1,4 +1,4 @@
-package com.jigsaw3d.adventure.jigsaw_3d_adventure
+package com.snapblocktales.game
 
 import io.flutter.embedding.android.FlutterActivity
 

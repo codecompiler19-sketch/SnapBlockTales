@@ -27,4 +27,5 @@ flutter:
   assets:
     - assets/images/
     - assets/images/levels/
+    - assets/images/3d/
     - assets/audio/
